@@ -22,9 +22,8 @@ async def run_january_2018():
     )
 
     try:
-        print("🚀 Запуск процедур расчета за январь 2018...")
+        print("Запуск процедур расчета за январь 2018...")
 
-        # Сначала заполняем начальные остатки за 31.12.2017
         print("1. Заполняем начальные остатки за 31.12.2017...")
         await conn.execute(
             """
@@ -41,21 +40,19 @@ async def run_january_2018():
         """
         )
 
-        # Расчет по дням января
         start_date = date(2018, 1, 1)
         end_date = date(2018, 1, 31)
 
         current_date = start_date
         while current_date <= end_date:
-            print(f"📅 Расчет за {current_date}...")
+            print(f"Расчет за {current_date}...")
 
-            # Вызов процедур
             await conn.execute("CALL ds.fill_account_turnover_f($1)", current_date)
             await conn.execute("CALL ds.fill_account_balance_f($1)", current_date)
 
             current_date += timedelta(days=1)
 
-        print("✅ Расчет января 2018 завершен!")
+        print("Расчет января 2018 завершен!")
 
     finally:
         await conn.close()

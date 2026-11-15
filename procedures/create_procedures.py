@@ -13,7 +13,7 @@ async def run_sql_file(conn: asyncpg.Connection, filepath: str):
     with open(filepath, "r", encoding="utf-8") as f:
         sql = f.read()
     await conn.execute(sql)
-    print(f"✅ Создана процедура из: {filepath}")
+    print(f"Создана процедура из: {filepath}")
 
 
 async def create_procedures():
@@ -28,15 +28,13 @@ async def create_procedures():
     )
 
     try:
-        # Создаем процедуры
         procedures_dir = "sql/procedures"
         for file in sorted(os.listdir(procedures_dir)):
             if file.endswith(".sql"):
                 await run_sql_file(conn, os.path.join(procedures_dir, file))
 
-        print("✅ Все процедуры созданы!")
+        print("Все процедуры созданы!")
 
-        # Проверяем создание
         procedures = await conn.fetch(
             """
             SELECT routine_name 
@@ -46,7 +44,7 @@ async def create_procedures():
         """
         )
 
-        print("📋 Созданные процедуры:")
+        print("Созданные процедуры:")
         for proc in procedures:
             print(f"   - {proc['routine_name']}")
 

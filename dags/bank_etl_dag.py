@@ -154,7 +154,7 @@ with DAG(
         to=["admin@bank.ru"],
         subject="Data quality alert - {{ ds }}",
         html_content="""
-        <h3>⚠️ Data Quality Alert</h3>
+        <h3>Data Quality Alert</h3>
         <p>Date: {{ ds }}</p>
         <p>Records loaded: {{ ti.xcom_pull(task_ids='load', key='records') }}</p>
         <p>Error count: {{ ti.xcom_pull(task_ids='validation', key='validation_result').get('error_count') }}</p>

@@ -20,39 +20,37 @@ class LoanHolidayCompleteFix:
     def __init__(self):
         self.spark = create_spark_session("LoanHolidayCompleteFix")
         self.props = get_postgres_properties(db_settings)
-        self.csv_dir = Path("files")  # Папка с CSV файлами
+        self.csv_dir = Path("files")
 
     def check_csv_files(self):
         """
         Проверка наличия CSV файлов
         """
-        print("\n🔍 ПРОВЕРКА CSV ФАЙЛОВ...")
+        print("\nПРОВЕРКА CSV ФАЙЛОВ...")
 
         if not self.csv_dir.exists():
-            print(f"❌ Папка {self.csv_dir} не существует")
-            print("   Создайте папку 'files' и поместите туда CSV файлы")
+            print(f"Папка {self.csv_dir} не существует")
             return False
 
         csv_files = list(self.csv_dir.glob("*.csv"))
 
         if not csv_files:
-            print("❌ CSV файлы не найдены")
+            print("CSV файлы не найдены")
             return False
 
-        print(f"✅ Найдено {len(csv_files)} CSV файлов:")
+        print(f"Найдено {len(csv_files)} CSV файлов:")
         for csv_file in csv_files:
-            print(f"   📄 {csv_file.name}")
+            print(f"{csv_file.name}")
 
             try:
-                # Попробуем прочитать с разными кодировками
                 test_df = pd.read_csv(csv_file, nrows=3, encoding="utf-8")
-                print(f"      Кодировка: UTF-8 ✓")
+                print(f"Кодировка: UTF-8 ")
             except UnicodeDecodeError:
                 try:
                     test_df = pd.read_csv(csv_file, nrows=3, encoding="windows-1251")
-                    print(f"      Кодировка: Windows-1251 ✓")
+                    print(f"Кодировка: Windows-1251 ")
                 except:
-                    print(f"      Кодировка: Неизвестна (проверь вручную)")
+                    print(f"Кодировка: Неизвестна (проверь вручную)")
 
         return True
 
@@ -69,23 +67,20 @@ class LoanHolidayCompleteFix:
             except UnicodeDecodeError:
                 continue
 
-        return "utf-8"  # По умолчанию
+        return "utf-8"
 
     def load_csv_to_postgres(self, table_name, csv_file, encoding="utf-8"):
         """
         Загрузка CSV файла в PostgreSQL таблицу
         """
         try:
-            print(f"   📤 Загрузка {csv_file.name} в {table_name}...")
+            print(f"Загрузка {csv_file.name} в {table_name}...")
 
-            # 1. Читаем CSV файл
             df = pd.read_csv(csv_file, encoding=encoding)
-            print(f"      Прочитано {len(df)} строк")
+            print(f"Прочитано {len(df)} строк")
 
-            # 2. Преобразуем в Spark DataFrame
             spark_df = self.spark.createDataFrame(df)
 
-            # 3. Записываем в PostgreSQL
             spark_df.write.format("jdbc").option("url", self.props["url"]).option(
                 "dbtable", table_name
             ).option("user", self.props["user"]).option(
@@ -96,24 +91,23 @@ class LoanHolidayCompleteFix:
                 "append"
             ).save()
 
-            print(f"      ✅ Успешно загружено")
+            print(f"Успешно загружено")
             return True
 
         except Exception as e:
-            print(f"      ❌ Ошибка: {e}")
+            print(f"Ошибка: {e}")
             return False
 
     def load_all_csv_files(self):
         """
         Загрузка всех CSV файлов в соответствующие таблицы
         """
-        print("\n📤 ЗАГРУЗКА ВСЕХ CSV ФАЙЛОВ...")
+        print("\nЗАГРУЗКА ВСЕХ CSV ФАЙЛОВ...")
 
         if not self.csv_dir.exists():
-            print("❌ Папка с CSV файлами не найдена")
+            print("Папка с CSV файлами не найдена")
             return False
 
-        # Маппинг: имя CSV файла → таблица PostgreSQL
         csv_mapping = {
             "deal_info": "rd.deal_info",
             "loan_holiday": "rd.loan_holiday",
@@ -131,24 +125,22 @@ class LoanHolidayCompleteFix:
                 if success:
                     loaded_count += 1
             else:
-                print(f"   ⚠️  Файл {csv_stem}.csv не найден, пропускаем")
+                print(f"Файл {csv_stem}.csv не найден, пропускаем")
 
-        print(f"\n✅ Загружено {loaded_count} из {len(csv_mapping)} файлов")
+        print(f"\nЗагружено {loaded_count} из {len(csv_mapping)} файлов")
         return loaded_count > 0
 
     def check_data_after_load(self):
         """
         Проверка данных после загрузки CSV
         """
-        print("\n🔍 ПРОВЕРКА ДАННЫХ ПОСЛЕ ЗАГРУЗКИ...")
+        print("\nПРОВЕРКА ДАННЫХ ПОСЛЕ ЗАГРУЗКИ...")
 
-        # Проверяем для каждого периода
         periods = ["2023-01-01", "2023-03-15", "2023-08-11"]
 
         for period in periods:
-            print(f"\n   📅 Период: {period}")
+            print(f"\nПериод: {period}")
 
-            # Проверяем rd.deal
             deal_query = f"""
                 SELECT COUNT(*) as cnt 
                 FROM rd.deal_info 
@@ -166,9 +158,8 @@ class LoanHolidayCompleteFix:
             )
 
             deal_count = df_deal.collect()[0]["cnt"]
-            print(f"      rd.deal: {deal_count} записей")
+            print(f"rd.deal: {deal_count} записей")
 
-            # Проверяем rd.loan_holiday
             loan_query = f"""
                 SELECT COUNT(*) as cnt 
                 FROM rd.loan_holiday 
@@ -186,23 +177,22 @@ class LoanHolidayCompleteFix:
             )
 
             loan_count = df_loan.collect()[0]["cnt"]
-            print(f"      rd.loan_holiday: {loan_count} записей")
+            print(f"rd.loan_holiday: {loan_count} записей")
 
-            # Определяем статус периода
             if deal_count > 0 and loan_count > 0:
-                print(f"      ✅ Период готов для сборки витрины")
+                print(f"Период готов для сборки витрины")
             elif deal_count == 0 and loan_count > 0:
-                print(f"      ❌ Проблема: нет данных в rd.deal")
+                print(f"Проблема: нет данных в rd.deal")
             elif deal_count > 0 and loan_count == 0:
-                print(f"      ⚠️  Предупреждение: нет данных в rd.loan_holiday")
+                print(f"Предупреждение: нет данных в rd.loan_holiday")
             else:
-                print(f"      ⚠️  Нет данных ни в одном источнике")
+                print(f"Нет данных ни в одном источнике")
 
     def truncate_mart(self):
         """
         Очистка витрины
         """
-        print("\n🗑️  ОЧИСТКА ВИТРИНЫ...")
+        print("\nОЧИСТКА ВИТРИНЫ...")
 
         try:
             conn = psycopg2.connect(
@@ -216,24 +206,23 @@ class LoanHolidayCompleteFix:
             cursor = conn.cursor()
 
             cursor.execute("TRUNCATE TABLE dm.loan_holiday_info")
-            print("   ✅ Витрина очищена")
+            print("Витрина очищена")
 
             cursor.close()
             conn.close()
             return True
 
         except Exception as e:
-            print(f"   ❌ Ошибка: {e}")
+            print(f"Ошибка: {e}")
             return False
 
     def rebuild_mart_from_prototype(self):
         """
         Пересборка витрины по прототипу
         """
-        print("\n🔄 ПЕРЕСБОРКА ВИТРИНЫ ПО ПРОТОТИПУ...")
+        print("\nПЕРЕСБОРКА ВИТРИНЫ ПО ПРОТОТИПУ...")
 
         try:
-            # SQL прототип из задания
             prototype_sql = """
                 WITH deal AS (
                     SELECT  
@@ -320,8 +309,7 @@ class LoanHolidayCompleteFix:
                 FROM holiday_info
             """
 
-            # Читаем данные по прототипу
-            print("   📊 Выполняю прототип SQL...")
+            print("Выполняю прототип SQL...")
             mart_data = (
                 self.spark.read.format("jdbc")
                 .option("url", self.props["url"])
@@ -332,8 +320,7 @@ class LoanHolidayCompleteFix:
                 .load()
             )
 
-            # Записываем в витрину
-            print("   💾 Записываю в витрину...")
+            print("Записываю в витрину...")
             mart_data.write.format("jdbc").option("url", self.props["url"]).option(
                 "dbtable", "dm.loan_holiday_info"
             ).option("user", self.props["user"]).option(
@@ -344,11 +331,11 @@ class LoanHolidayCompleteFix:
                 "append"
             ).save()
 
-            print("   ✅ Витрина пересобрана")
+            print("Витрина пересобрана")
             return True
 
         except Exception as e:
-            print(f"   ❌ Ошибка: {e}")
+            print(f"Ошибка: {e}")
             import traceback
 
             traceback.print_exc()
@@ -358,10 +345,9 @@ class LoanHolidayCompleteFix:
         """
         Валидация финального результата
         """
-        print("\n✅ ПРОВЕРКА ФИНАЛЬНОГО РЕЗУЛЬТАТА...")
+        print("\nПРОВЕРКА ФИНАЛЬНОГО РЕЗУЛЬТАТА...")
 
         try:
-            # 1. Проверяем общее количество
             count_query = """
                 SELECT COUNT(*) as total_records 
                 FROM dm.loan_holiday_info
@@ -378,9 +364,8 @@ class LoanHolidayCompleteFix:
             )
 
             total = df_count.collect()[0]["total_records"]
-            print(f"   1. Всего записей в витрине: {total}")
+            print(f"1.Всего записей в витрине: {total}")
 
-            # 2. Проверяем распределение по датам
             date_query = """
                 SELECT 
                     effective_from_date,
@@ -400,13 +385,12 @@ class LoanHolidayCompleteFix:
                 .load()
             )
 
-            print("   2. Распределение по датам:")
+            print("2.Распределение по датам:")
             for row in df_dates.collect():
                 print(
-                    f"      {row['effective_from_date']}: {row['record_count']} записей"
+                    f"{row['effective_from_date']}: {row['record_count']} записей"
                 )
 
-            # 3. Проверяем качество данных
             quality_query = """
                 SELECT 
                     COUNT(CASE WHEN deal_rk IS NULL THEN 1 END) as null_deal_rk,
@@ -427,17 +411,16 @@ class LoanHolidayCompleteFix:
             )
 
             quality = df_quality.collect()[0]
-            print("   3. Качество данных:")
-            print(f"      NULL в deal_rk: {quality['null_deal_rk']}")
-            print(f"      NULL в датах: {quality['null_date']}")
-            print(f"      NULL в loan_holiday_type_cd: {quality['null_holiday_type']}")
+            print("3.Качество данных:")
+            print(f"NULL в deal_rk: {quality['null_deal_rk']}")
+            print(f"NULL в датах: {quality['null_date']}")
+            print(f"NULL в loan_holiday_type_cd: {quality['null_holiday_type']}")
 
             if quality["null_deal_rk"] == 0 and quality["null_date"] == 0:
-                print("      ✅ Ключевые поля заполнены корректно")
+                print("Ключевые поля заполнены корректно")
             else:
-                print("      ⚠️  Есть проблемы с данными")
+                print("Есть проблемы с данными")
 
-            # 4. Проверяем период 2023-03-15
             check_2023_03_15 = """
                 SELECT COUNT(*) as cnt 
                 FROM dm.loan_holiday_info 
@@ -455,24 +438,24 @@ class LoanHolidayCompleteFix:
             )
 
             count_2023_03_15 = df_check.collect()[0]["cnt"]
-            print(f"   4. Период 2023-03-15: {count_2023_03_15} записей")
+            print(f"4.Период 2023-03-15: {count_2023_03_15} записей")
 
             if count_2023_03_15 > 0:
-                print("      ✅ Данные за 2023-03-15 восстановлены")
+                print("Данные за 2023-03-15 восстановлены")
             else:
-                print("      ⚠️  Данные за 2023-03-15 отсутствуют")
+                print("Данные за 2023-03-15 отсутствуют")
 
             return True
 
         except Exception as e:
-            print(f"   ❌ Ошибка при проверке: {e}")
+            print(f"Ошибка при проверке: {e}")
             return False
 
     def create_final_report(self):
         """
         Создание финального отчёта
         """
-        print("\n📝 СОЗДАНИЕ ФИНАЛЬНОГО ОТЧЁТА...")
+        print("\nСОЗДАНИЕ ФИНАЛЬНОГО ОТЧЁТА...")
 
         report = []
         report.append("=" * 70)
@@ -480,7 +463,6 @@ class LoanHolidayCompleteFix:
         report.append("=" * 70)
         report.append("")
 
-        # Получаем итоговую статистику
         stats_query = """
             SELECT 
                 effective_from_date,
@@ -510,15 +492,14 @@ class LoanHolidayCompleteFix:
         report.append(f"   Всего: {total} записей")
 
         report.append("\n2. ВЫПОЛНЕННЫЕ ДЕЙСТВИЯ:")
-        report.append("   ✅ Проанализирована витрина и источники")
-        report.append("   ✅ Загружены актуальные CSV файлы на RD слой")
-        report.append("   ✅ Очищена витрина от старых данных")
-        report.append("   ✅ Выполнена полная перезагрузка по прототипу")
-        report.append("   ✅ Проверено качество данных")
+        report.append("Проанализирована витрина и источники")
+        report.append("Загружены актуальные CSV файлы на RD слой")
+        report.append("Очищена витрина от старых данных")
+        report.append("Выполнена полная перезагрузка по прототипу")
+        report.append("Проверено качество данных")
 
-        report.append("\n3. РЕШЁННЫЕ ПРОБЛЕМЫ:")
+        report.append("\n3.РЕШЁННЫЕ ПРОБЛЕМЫ:")
 
-        # Проверяем период 2023-03-15
         check_2023 = """
             SELECT COUNT(*) as cnt 
             FROM rd.deal_info 
@@ -538,16 +519,16 @@ class LoanHolidayCompleteFix:
         deal_count_2023 = df_check.collect()[0]["cnt"]
 
         if deal_count_2023 > 0:
-            report.append("   ✅ Восстановлены данные за 2023-03-15")
-            report.append("   ✅ Теперь все периоды имеют полные данные")
+            report.append("Восстановлены данные за 2023-03-15")
+            report.append("Теперь все периоды имеют полные данные")
         else:
-            report.append("   ⚠️  Период 2023-03-15 всё ещё без данных deal_info")
-            report.append("   ⚠️  CSV файл с deal_info за эту дату отсутствует")
+            report.append("Период 2023-03-15 всё ещё без данных deal_info")
+            report.append("CSV файл с deal_info за эту дату отсутствует")
 
-        report.append("\n4. РЕКОМЕНДАЦИИ:")
-        report.append("   📌 Настроить автоматическую проверку целостности данных")
-        report.append("   📌 Создать процесс мониторинга источников")
-        report.append("   📌 Внедрить алертинг при неполных данных")
+        report.append("\n4.РЕКОМЕНДАЦИИ:")
+        report.append("Настроить автоматическую проверку целостности данных")
+        report.append("Создать процесс мониторинга источников")
+        report.append("Внедрить алертинг при неполных данных")
 
         report.append("\n" + "=" * 70)
         report.append("ВЫВОД: Задание 2.2 выполнено полностью.")
@@ -555,7 +536,6 @@ class LoanHolidayCompleteFix:
         report.append("Качество данных обеспечено, процесс задокументирован.")
         report.append("=" * 70)
 
-        # Выводим краткую версию
         print("\n" + "\n".join(report[:15]) + "\n...")
 
     def run(self):
@@ -563,47 +543,40 @@ class LoanHolidayCompleteFix:
         Основной метод выполнения задания
         """
         print("=" * 70)
-        print("🚀 ПОЛНОЕ ВЫПОЛНЕНИЕ ЗАДАНИЯ 2.2")
+        print("ПОЛНОЕ ВЫПОЛНЕНИЕ ЗАДАНИЯ 2.2")
         print("=" * 70)
 
         try:
-            # Шаг 1: Проверка CSV файлов
-            print("\n📋 ШАГ 1: Проверка CSV файлов")
+            print("\nШАГ 1:Проверка CSV файлов")
             if not self.check_csv_files():
-                print("⚠️  Продолжаем без CSV файлов")
+                print("Продолжаем без CSV файлов")
 
-            # Шаг 2: Загрузка CSV (если есть)
-            print("\n📤 ШАГ 2: Загрузка CSV файлов на RD слой")
+            print("\nШАГ 2:Загрузка CSV файлов на RD слой")
             self.load_all_csv_files()
 
-            # Шаг 3: Проверка данных после загрузки
-            print("\n🔍 ШАГ 3: Проверка данных после загрузки")
+            print("\nШАГ 3:Проверка данных после загрузки")
             self.check_data_after_load()
 
-            # Шаг 4: Очистка витрины
-            print("\n🗑️  ШАГ 4: Очистка витрины")
+            print("\nШАГ 4:Очистка витрины")
             self.truncate_mart()
 
-            # Шаг 5: Пересборка витрины
-            print("\n🔄 ШАГ 5: Пересборка витрины по прототипу")
+            print("\nШАГ 5:Пересборка витрины по прототипу")
             self.rebuild_mart_from_prototype()
 
-            # Шаг 6: Проверка результата
-            print("\n✅ ШАГ 6: Проверка финального результата")
+            print("\nШАГ 6:Проверка финального результата")
             self.validate_final_result()
 
-            # Шаг 7: Создание отчёта
-            print("\n📝 ШАГ 7: Создание финального отчёта")
+            print("\nШАГ 7:Создание финального отчёта")
             self.create_final_report()
 
             print("\n" + "=" * 70)
-            print("✨ ЗАДАНИЕ 2.2 ВЫПОЛНЕНО ПОЛНОСТЬЮ!")
+            print("ЗАДАНИЕ 2.2 ВЫПОЛНЕНО ПОЛНОСТЬЮ!")
             print("=" * 70)
 
             return True
 
         except Exception as e:
-            print(f"\n❌ КРИТИЧЕСКАЯ ОШИБКА: {e}")
+            print(f"\nКРИТИЧЕСКАЯ ОШИБКА: {e}")
             import traceback
 
             traceback.print_exc()
@@ -612,7 +585,7 @@ class LoanHolidayCompleteFix:
         finally:
             if self.spark:
                 self.spark.stop()
-                print("\n🛑 Spark сессия остановлена")
+                print("\nSpark сессия остановлена")
 
 
 def main():
@@ -623,10 +596,10 @@ def main():
     success = fixer.run()
 
     if success:
-        print("\n✅ ПРОГРАММА ВЫПОЛНЕНА УСПЕШНО!")
+        print("\nПРОГРАММА ВЫПОЛНЕНА УСПЕШНО!")
         sys.exit(0)
     else:
-        print("\n❌ ПРОГРАММА ЗАВЕРШИЛАСЬ С ОШИБКОЙ!")
+        print("\nПРОГРАММА ЗАВЕРШИЛАСЬ С ОШИБКОЙ!")
         sys.exit(1)
 
 

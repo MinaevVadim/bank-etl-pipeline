@@ -83,7 +83,7 @@ def deduplicate_client_table():
         print(f"   Стало записей: {final_count}")
         print(f"   Удалено дубликатов: {duplicates_count}")
 
-        print("\n💾 Сохраняю результат в PostgreSQL...")
+        print("\nСохраняю результат в PostgreSQL...")
 
         write_table_to_postgres(
             deduplicated_df,
@@ -112,7 +112,7 @@ def deduplicate_client_table():
     finally:
         if spark:
             spark.stop()
-            print("\n🛑 Spark сессия остановлена")
+            print("\nSpark сессия остановлена")
 
 
 if __name__ == "__main__":
@@ -120,11 +120,11 @@ if __name__ == "__main__":
 
     if success:
         print("\n" + "=" * 70)
-        print("✨ ЗАДАНИЕ 2.1 ВЫПОЛНЕНО УСПЕШНО!")
+        print("ЗАДАНИЕ 2.1 ВЫПОЛНЕНО УСПЕШНО!")
         print("=" * 70)
         exit(0)
     else:
         print("\n" + "=" * 70)
-        print("💥 ЗАДАНИЕ 2.1 ЗАВЕРШИЛОСЬ С ОШИБКОЙ!")
+        print("ЗАДАНИЕ 2.1 ЗАВЕРШИЛОСЬ С ОШИБКОЙ!")
         print("=" * 70)
         exit(1)
